@@ -1,5 +1,6 @@
 from tkinter import Tk, Canvas, Event
 from math import sin, cos, radians, pi
+from typing import cast, Any
 
 def sinD(angle: float):
     return sin(radians(angle))
@@ -7,15 +8,117 @@ def sinD(angle: float):
 def cosD(angle: float):
     return cos(angle * pi / 180)
 
+# def transform(vectors: list["Vector3D"]):
+#     c1 = rubicksCube[0][0][0]
+#     # c2 = rubicksCube[0][0][1]
+
+#     newX = c1.points[0] # 4, 0
+#     newY = ... # 3, 1
+#     newZ = ... # 1, 0
 
 
-last = [-1, -1]
-counter = 5
 
+lastCubeTag: str = ""
+
+def rotateMatrix(matrix: list[list[Any]], clockwise: bool) -> None:
+    matrixSize = len(matrix)
+    if (clockwise):
+        for i in range(matrixSize):
+            for j in range(matrixSize):
+                if (j < i): continue
+                temp: Any = matrix[i][j]
+                matrix[i][j] = matrix[j][i]
+                matrix[j][i] = temp
+        for k in range(matrixSize):
+            temp = matrix[k][0]
+            matrix[k][0] = matrix[k][-1]
+            matrix[k][-1] = temp
+    else:
+        for i in range(3):
+            rotateMatrix(matrix, True)
+
+
+def handleDrag(e: Event, w: Canvas, d: float, factor: float) -> None:
+    global lastCubeTag
+    overlaps: tuple[int, ...] = w.find_overlapping(e.x, e.y, e.x, e.y)
+    if (len(overlaps) <= 0): return
+    tags: list[str] = cast(str, w.itemcget(overlaps[0], "tags")).split(' ') # type: ignore
+    # print(tags)
+    if (len(tags) <= 0): return
+    cubeTag: str = tags[0]
+
+    if (lastCubeTag == cubeTag): return
+
+    if (lastCubeTag == ""):
+        lastCubeTag = cubeTag
+        return
+    print(lastCubeTag, cubeTag)
+    try:
+        color: str = tags[2]
+    except IndexError:
+        return
+
+    cube1Number: int = int(lastCubeTag[4:])
+    layer1: int = cube1Number // 9
+    row1: int = (cube1Number % 9) // 3
+    column1: int = (cube1Number % 9) % 3
+
+    cube2Number: int = int(cubeTag[4:])
+    layer2: int = cube2Number // 9
+    row2: int = (cube2Number % 9) // 3
+    column2: int = (cube2Number % 9) % 3
+
+    cube1: Cube = rubicksCube[layer1][row1][column1]
+    cube2: Cube = rubicksCube[layer2][row2][column2]
+
+    directionVector: Vector3D = cube2.center - cube1.center
+    
+    unitVector: Vector3D = faceDirections[color]
+
+    directionVector += unitVector
+
+    axis: str = ''
+
+    if (dot(directionVector, Vector3D(1, 0, 0)) == 0): # the x-axis
+        axis = 'X'
+    elif (dot(directionVector, Vector3D(0, 1, 0))): # the y-axis
+        axis = 'Y'
+    elif (dot(directionVector, Vector3D(0, 0, 1))): # the z-axis
+        axis = 'Z'
+    
+    if (axis == ''):
+        print("ERROR: no suitable axis")
+        lastCubeTag = ""
+        return
+    
+    directionVector -= unitVector
+
+    match axis:
+        case 'X':
+            if (directionVector.y + directionVector.z > 0):
+                side: list[list[Cube]] = []
+                for i in range(3):
+                    row: list[Cube] = []
+                    for j in range(3):
+                        row.append(rubicksCube[i][j][column1])
+                    side.append(row)
+                rotateMatrix(side, True)
+                for i in range(3):
+                    for j in range(3):
+                        # newCenter = Vector3D(2*k - 2, -2*i + 2, 2*j - 2)
+                        side[i][j].rotate(90, 0, 0)
+                        # side[i][j].changeCenter(newCenter)
+        case _:
+            pass
+    draw(w, d, factor)
+    lastCubeTag = ""
 
 
 # 1000 for loop iterations do not affect rendering time
 def handleRotate(e: Event, w: Canvas, d: float, factor: float) -> None:
+    # matrix = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
+    # rotateMatrix(matrix, True)
+    # print(matrix)
     match(e.char):
         case 'w':
             rotate(10, 0, 0)
@@ -90,10 +193,6 @@ class Vector3D:
 
         self.x = xCord * cosD(z) - yCord * sinD(z)
         self.y = xCord * sinD(z) + yCord * cosD(z)
-
-        # self.x = round(self.x, 4)
-        # self.y = round(self.y, 4)
-        # self.z = round(self.z, 4)
         
         return self
 
@@ -124,8 +223,9 @@ class Cube:
              Vector3D( 1, -1, 1), Vector3D( 1, -1, -1), 
              Vector3D( 1,  1, 1), Vector3D( 1,  1, -1)]
         self.id = id
-        for i in range(8):
-            self.points[i] += center
+        self.center: Vector3D = center
+        for i in range(len(self.points)):
+            self.points[i] += self.center
 
         self.edges: list[tuple[int, int]] = []
         self.faces: list[tuple[int, int, int]] = []
@@ -183,6 +283,13 @@ class Cube:
         self.colors.append(color)
         return self
     
+    def changeCenter(self, newCenter: Vector3D) -> "Cube":
+        for i in range(len(self.points)):
+            self.points[i] -= self.center
+            self.points[i] += newCenter
+        self.center = newCenter
+        return self
+
     def getDefaultFaces(self) -> "Cube":
         self.faces = [(1, 0, 2), (2, 3, 1), # left face
             (3, 2, 6), (6, 7, 3), # top face
@@ -198,8 +305,8 @@ class Cube:
             self.points[i].rotate(x, y, z)
         return self
 
+    #TODO possibly improve by using threads
     def draw(self, w: Canvas, distance: float, factor: float) -> None:
-        #TODO possibly improve by using threads
         w.delete(self.id)
         if (self.colors == []):
             self.colors = ["yellow", "green", "purple", "red", "orange", "white",
@@ -215,6 +322,10 @@ class Cube:
             # one but it will still be drawn on the front side.
             if (self.colors[face] is None):
                 continue
+            
+            color: str | None = self.colors[face]
+            assert color is not None # Making sure color is not None
+
             v1: Vector3D = self.points[faces[face][0]] - self.points[faces[face][1]]
             v2: Vector3D = self.points[faces[face][2]] - self.points[faces[face][1]]
             p: Vector3D = cross(v1, v2) # This is perpendicular to triangle vector
@@ -227,18 +338,18 @@ class Cube:
             # drawLine(w, self.points[faces[face][0]].get2D(distance, factor), p.get2D(distance, factor), self.id)
             # drawLine(w, self.points[faces[face][1]].get2D(distance, factor), p.get2D(distance, factor), self.id)
             # drawLine(w, self.points[faces[face][2]].get2D(distance, factor), p.get2D(distance, factor), self.id)
-            if (self.colors[face] == "white" or self.colors[face] == "red"):
-                print(self.id)
-                print(self.colors[face])
-                print(self.faces[face])
-                print(self.points[self.faces[face][0]])
-                print(self.points[self.faces[face][1]])
-                print(self.points[self.faces[face][2]])
-                # print(v1)
-                # print(v2)
-                # print(p)
-                print(direction)
-                print()
+            # if (self.colors[face] == "white" or self.colors[face] == "red"):
+            #     print(self.id)
+            #     print(self.colors[face])
+            #     print(self.faces[face])
+            #     print(self.points[self.faces[face][0]])
+            #     print(self.points[self.faces[face][1]])
+            #     print(self.points[self.faces[face][2]])
+            #     # print(v1)
+            #     # print(v2)
+            #     # print(p)
+            #     print(direction)
+            #     print()
             #     drawLine(w, self.points[faces[face][1]].get2D(distance, factor), p.get2D(distance, factor), self.id)
             if (direction >= 0):
                 continue
@@ -247,12 +358,15 @@ class Cube:
             # norm = abs(lightMagnitude) / abs(dot(p, p))
             # shade = int(150 * (1 + norm))
             # print(norm, shade, lightMagnitude)
+            # color: str = self.colors[face]
+            faceTags: list[str] = [self.id, "cube", color]
+
             drawTriangle(w, (self.points[self.faces[face][0]].get2D(distance, factor),
                              self.points[self.faces[face][1]].get2D(distance, factor),
                              self.points[self.faces[face][2]].get2D(distance, factor)),
-                         self.colors[face], self.id) # type: ignore
-            drawLine(w, self.points[self.faces[face][0]].get2D(distance, factor), self.points[self.faces[face][1]].get2D(distance, factor), self.id)
-            drawLine(w, self.points[self.faces[face][1]].get2D(distance, factor), self.points[self.faces[face][2]].get2D(distance, factor), self.id)
+                         color, faceTags)
+            drawLine(w, self.points[self.faces[face][0]].get2D(distance, factor), self.points[self.faces[face][1]].get2D(distance, factor), [self.id])
+            drawLine(w, self.points[self.faces[face][1]].get2D(distance, factor), self.points[self.faces[face][2]].get2D(distance, factor), [self.id])
         
         # for start, end in self.edges:
         #     drawLine(w, self.points[start].get2D(distance, factor),
@@ -268,15 +382,26 @@ def cross(v: Vector3D, w: Vector3D) -> Vector3D:
     z = v.x * w.y - w.x * v.y
     return Vector3D(x, y, z)
 
-def drawLine(w: Canvas, point1: Vector2D, point2: Vector2D, tag: str) -> None:
-    w.create_line(point1.x + 400, 400 - point1.y, point2.x + 400, 400 - point2.y, fill= "black", tag= tag) # type: ignore
 
-def drawTriangle(w: Canvas, points: tuple[Vector2D, Vector2D, Vector2D], color: str, tag: str) -> None:
+faceDirections: dict[str, Vector3D] = {
+    "orange": Vector3D( 1,  0,  0),
+    "yellow": Vector3D( 0, -1,  0),
+    "blue":   Vector3D( 0,  0,  1),
+    "red":    Vector3D(-1,  0,  0),
+    "green":  Vector3D( 0,  0, -1),
+    "white":  Vector3D( 0,  1,  0)
+}
+
+
+def drawLine(w: Canvas, point1: Vector2D, point2: Vector2D, tags: list[str]) -> None:
+    w.create_line(point1.x + 400, 400 - point1.y, point2.x + 400, 400 - point2.y, fill= "black", tags= tags) # type: ignore
+
+def drawTriangle(w: Canvas, points: tuple[Vector2D, Vector2D, Vector2D], color: str, tags: list[str]) -> None:
     w.create_polygon(points[0].x + 400, 400 - points[0].y, # Adjusted coordinates for first point
                      points[1].x + 400, 400 - points[1].y, # Adjusting coordinates for second point
                      points[2].x + 400, 400 - points[2].y, # Adjusting coordinates for thrird point
                      fill= color,
-                     tag= tag) # type: ignore
+                     tag= tags) # type: ignore
 
 
 def draw(w: Canvas, distance: float, factor: float):
@@ -412,6 +537,7 @@ cube2.addFace("front", "blue")
 # cube2.draw(w, d, factor)
 # root.bind("<B3-Motion>", lambda e: handleRotate(e, w, d, factor))
 root.bind("<Key>", lambda e: handleRotate(e, w, d, factor))
+root.bind("<B1-Motion>", lambda e: handleDrag(e, w, d, factor))
 
 # for point in cube.points:
 #     print(point.x, point.y, point.z)
