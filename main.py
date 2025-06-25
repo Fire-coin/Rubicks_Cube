@@ -8,6 +8,36 @@ def sinD(angle: float):
 def cosD(angle: float):
     return cos(angle * pi / 180)
 
+def matrixMultiply(matrix: list[list[float]], vector: tuple[float, ...]) -> tuple[float, ...]:
+    output: list[float] = [0, 0, 0]
+
+    for i in range(3):
+        result: float = 0
+        for j in range(3):
+            result += matrix[j][i] * vector[j]
+        output[i] = result
+
+    return tuple(output)
+
+
+def transform(v: "Vector3D", i: "Vector3D", j: "Vector3D", k: "Vector3D") -> "Vector3D":
+    matrix = [[i.x, i.y, i.z],
+              [j.x, j.y, j.z],
+              [k.x, k.y, k.z]]
+
+    newCoords = matrixMultiply(matrix, tuple([v.x, v.y, v.z]))
+
+    return Vector3D(newCoords[0], newCoords[1], newCoords[2])
+    
+
+def reset() -> None:
+    global lastCubeTag, lastFaceTag
+    lastCubeTag = ""
+    lastFaceTag = ""
+    root.bind("<B1-Motion>", lambda e: handleDrag(e, w, d, factor))
+
+    print("reseted")
+
 def getCurrentUnits(cube: "Cube"):
     # w.delete("c1")
     # c1 = rubicksCube[0][0][0]
@@ -18,10 +48,10 @@ def getCurrentUnits(cube: "Cube"):
     newZ = cube.points[1] - cube.points[0] # 1, 0
 
     # origin = Vector3D(0, 0, 0)
+    newX *= 0.5
+    newY *= 0.5
+    newZ *= 0.5
     return tuple([newX, newY, newZ])
-    # newX *= 5
-    # newY *= 4
-    # newZ *= 6
     # print(newX)
 
     # print(origin.get2D(d, factor))
@@ -33,6 +63,7 @@ def getCurrentUnits(cube: "Cube"):
 
 
 lastCubeTag: str = ""
+lastFaceTag: str = ""
 
 def rotateMatrix(matrix: list[list[Any]], clockwise: bool) -> None:
     matrixSize = len(matrix)
@@ -53,7 +84,7 @@ def rotateMatrix(matrix: list[list[Any]], clockwise: bool) -> None:
 
 
 def handleDrag(e: Event, w: Canvas, d: float, factor: float) -> None:
-    global lastCubeTag
+    global lastCubeTag, lastFaceTag
     overlaps: tuple[int, ...] = w.find_overlapping(e.x, e.y, e.x, e.y)
     if (len(overlaps) <= 0): return
     tags: list[str] = cast(str, w.itemcget(overlaps[0], "tags")).split(' ') # type: ignore
@@ -65,12 +96,13 @@ def handleDrag(e: Event, w: Canvas, d: float, factor: float) -> None:
 
     if (lastCubeTag == ""):
         lastCubeTag = cubeTag
+        lastFaceTag = tags[3]
         return
-    print(lastCubeTag, cubeTag)
-    try:
-        color: str = tags[2]
-    except IndexError:
-        return
+    root.unbind("<B1-Motion>")
+
+    print(lastCubeTag, cubeTag, lastFaceTag)
+  
+    ERROR: float = 0.01
 
     cube1Number: int = int(lastCubeTag[4:])
     layer1: int = cube1Number // 9
@@ -85,19 +117,51 @@ def handleDrag(e: Event, w: Canvas, d: float, factor: float) -> None:
     cube1: Cube = rubicksCube[layer1][row1][column1]
     cube2: Cube = rubicksCube[layer2][row2][column2]
 
-    directionVector: Vector3D = cube2.center - cube1.center
-    
-    unitVector: Vector3D = faceDirections[color]
+    faceIndex: int = int(lastFaceTag[4:]) # Getting index of the face that was hit
+    pointIndex: int = cube1.faces[faceIndex][0] # Index of any pont from the face that was hit
+    start: Vector3D = cube1.center # It is in the center of the cube
+    start.z += cube1.points[pointIndex].z # Making it being at the center on the visible surface
 
-    directionVector += unitVector
+    directionVector: Vector3D = cube2.center - start
+    
+    unitVectors = getCurrentUnits(cube1)
+
+    # current = 0
+    # highest = float("-inf")
+
+    # for unit in range(len(unitVectors)):
+    #     product = dot(unitVectors[unit], directionVector)
+    #     if (product > highest):
+    #         current = unit + 1
+    #         highest = product
+    #     elif (-product > highest):
+    #         current = -(unit + 1)
+    #         highest = -product
+    
+    # if (current == 0): raise ValueError("Not good")
+    
+   
+
 
     axis: str = ''
 
+    # match (abs(current)):
+    #     case 1:
+    #         axis = 'X'
+    #     case 2:
+    #         axis = 'Y'
+    #     case 3:
+    #         axis = 'Z'
+    #     case _:
+    #         axis = ''
+            
+
+
     if (dot(directionVector, Vector3D(1, 0, 0)) == 0): # the x-axis
         axis = 'X'
-    elif (dot(directionVector, Vector3D(0, 1, 0))): # the y-axis
+    elif (dot(directionVector, Vector3D(0, 1, 0)) == 0): # the y-axis
         axis = 'Y'
-    elif (dot(directionVector, Vector3D(0, 0, 1))): # the z-axis
+    elif (dot(directionVector, Vector3D(0, 0, 1)) == 0): # the z-axis
         axis = 'Z'
     
     if (axis == ''):
@@ -105,27 +169,72 @@ def handleDrag(e: Event, w: Canvas, d: float, factor: float) -> None:
         lastCubeTag = ""
         return
     
-    directionVector -= unitVector
-
+    # directionVector -= unitVector
+    print(axis)
+    # w.delete("c1")
+    # start.z += 2
+    # directionVector.z += 2
+    # drawLine(w, start.get2D(d, factor), directionVector.get2D(d, factor), ["c1"])
+    # start.z -= 2
+    # directionVector.z -= 2
     match axis:
         case 'X':
-            if (directionVector.y + directionVector.z > 0):
+            if (dot(directionVector, Vector3D(0, 1, 0)) > 0):
                 side: list[list[Cube]] = []
+                centerSide: list[list[Vector3D]] = []
                 for i in range(3):
                     row: list[Cube] = []
+                    centerRow: list[Vector3D] = []
                     for j in range(3):
+                        centerRow.append(Vector3D(2*column1 - 2, -2*i + 2, 2*j - 2))
                         row.append(rubicksCube[i][j][column1])
                     side.append(row)
-                rotateMatrix(side, True)
+                    centerSide.append(centerRow)
+                # rotateMatrix(side, True)
                 for i in range(3):
                     for j in range(3):
+                        # centerSide[i][j].rotate(90, 0, 0)
+                        # centerSide[i][j] = transform(centerSide[i][j], unitVectors[0],
+                                                    #  unitVectors[1], unitVectors[2])
+                        # side[i][j].changeCenter(centerSide[i][j])
                         # newCenter = Vector3D(2*k - 2, -2*i + 2, 2*j - 2)
                         side[i][j].rotate(90, 0, 0)
+                draw(w, d, factor)
+                lastCubeTag = ""
+                root.unbind("<B1-Motion>")
                         # side[i][j].changeCenter(newCenter)
+            else:
+                side: list[list[Cube]] = []
+                centerSide: list[list[Vector3D]] = []
+                for i in range(3):
+                    row: list[Cube] = []
+                    centerRow: list[Vector3D] = []
+                    for j in range(3):
+                        centerRow.append(Vector3D(2*column1 - 2, -2*i + 2, 2*j - 2))
+                        row.append(rubicksCube[i][j][column1])
+                    side.append(row)
+                    centerSide.append(centerRow)
+                # rotateMatrix(side, True)
+                for i in range(3):
+                    for j in range(3):
+                        # centerSide[i][j].rotate(90, 0, 0)
+                        # centerSide[i][j] = transform(centerSide[i][j], unitVectors[0],
+                                                    #  unitVectors[1], unitVectors[2])
+                        # side[i][j].changeCenter(centerSide[i][j])
+                        # newCenter = Vector3D(2*k - 2, -2*i + 2, 2*j - 2)
+                        side[i][j].rotate(-90, 0, 0)
+                draw(w, d, factor)
+                lastCubeTag = ""
+                root.unbind("<B1-Motion>")
+
         case _:
             pass
-    draw(w, d, factor)
-    lastCubeTag = ""
+    # print("here")
+    # draw(w, d, factor)
+    # lastCubeTag = ""
+    # root.unbind("<B1-Motion>")
+    # root.bind("<B1-Motion>", lambda e: handleDrag(e, w, d, factor))
+
 
 
 # 1000 for loop iterations do not affect rendering time
@@ -327,6 +436,7 @@ class Cube:
     def rotate(self, x: float, y: float, z: float) -> "Cube":
         for i in range(len(self.points)):
             self.points[i].rotate(x, y, z)
+        self.center.rotate(x, y, z)
         return self
 
     #TODO possibly improve by using threads
@@ -383,7 +493,7 @@ class Cube:
             # shade = int(150 * (1 + norm))
             # print(norm, shade, lightMagnitude)
             # color: str = self.colors[face]
-            faceTags: list[str] = [self.id, "cube", color]
+            faceTags: list[str] = [self.id, "cube", color, f"face{face}"]
 
             drawTriangle(w, (self.points[self.faces[face][0]].get2D(distance, factor),
                              self.points[self.faces[face][1]].get2D(distance, factor),
@@ -561,6 +671,7 @@ cube2.addFace("front", "blue")
 # cube2.draw(w, d, factor)
 # root.bind("<B3-Motion>", lambda e: handleRotate(e, w, d, factor))
 root.bind("<Key>", lambda e: handleRotate(e, w, d, factor))
+root.bind("<Button>", lambda e: reset())
 root.bind("<B1-Motion>", lambda e: handleDrag(e, w, d, factor))
 
 # for point in cube.points:
