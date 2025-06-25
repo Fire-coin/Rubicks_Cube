@@ -8,13 +8,27 @@ def sinD(angle: float):
 def cosD(angle: float):
     return cos(angle * pi / 180)
 
-# def transform(vectors: list["Vector3D"]):
-#     c1 = rubicksCube[0][0][0]
-#     # c2 = rubicksCube[0][0][1]
+def getCurrentUnits(cube: "Cube"):
+    # w.delete("c1")
+    # c1 = rubicksCube[0][0][0]
+    # c2 = rubicksCube[0][0][1]
 
-#     newX = c1.points[0] # 4, 0
-#     newY = ... # 3, 1
-#     newZ = ... # 1, 0
+    newX = cube.points[4] - cube.points[0] # 4, 0
+    newY = cube.points[3] - cube.points[1] # 3, 1
+    newZ = cube.points[1] - cube.points[0] # 1, 0
+
+    # origin = Vector3D(0, 0, 0)
+    return tuple([newX, newY, newZ])
+    # newX *= 5
+    # newY *= 4
+    # newZ *= 6
+    # print(newX)
+
+    # print(origin.get2D(d, factor))
+    # print(newX.get2D(d, factor))
+    # drawLine(w, origin.get2D(d, factor), newX.get2D(d, factor), ["c1"])
+    # drawLine(w, origin.get2D(d, factor), newY.get2D(d, factor), ["c1"])
+    # drawLine(w, origin.get2D(d, factor), newZ.get2D(d, factor), ["c1"])
 
 
 
@@ -119,6 +133,7 @@ def handleRotate(e: Event, w: Canvas, d: float, factor: float) -> None:
     # matrix = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
     # rotateMatrix(matrix, True)
     # print(matrix)
+    # units = [Vector3D(1, 0, 0), Vector3D(0, 1, 0), Vector3D(0, 0, 1)]
     match(e.char):
         case 'w':
             rotate(10, 0, 0)
@@ -160,6 +175,9 @@ class Vector2D:
     def __init__(self, x: float, y: float, scaleFactor: float) -> None:
         self.x = x * scaleFactor
         self.y = y * scaleFactor
+    
+    def __str__(self) -> str:
+        return f"X: {self.x}, Y: {self.y}"
 
 
 
@@ -213,6 +231,12 @@ class Vector3D:
 
     def __setitem__(self, other: "Vector3D") -> "Vector3D":
         return self.__add__(other)
+
+    def __mul__(self, num: float) -> "Vector3D":
+        self.x *= num
+        self.y *= num
+        self.z *= num
+        return self
 
 
 class Cube:
