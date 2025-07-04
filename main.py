@@ -75,9 +75,9 @@ def getCurrentUnits():
     newX *= 0.5
     newY *= 0.5
     newZ *= 0.5
-    drawLine(w, origin.get2D(d, factor * 6), newX.get2D(d, factor * 6), ["c1"])
-    drawLine(w, origin.get2D(d, factor * 6), newY.get2D(d, factor * 6), ["c1"])
-    drawLine(w, origin.get2D(d, factor * 6), newZ.get2D(d, factor * 6), ["c1"])
+    # drawLine(w, origin.get2D(d, factor * 6), newX.get2D(d, factor * 6), ["c1"])
+    # drawLine(w, origin.get2D(d, factor * 6), newY.get2D(d, factor * 6), ["c1"])
+    # drawLine(w, origin.get2D(d, factor * 6), newZ.get2D(d, factor * 6), ["c1"])
     return tuple([newX, newY, newZ])
 
 
@@ -250,7 +250,7 @@ def handleDrag(e: Event, w: Canvas, d: float, factor: float) -> None:
 
 
             draw(w, d, factor)
-            drawLine(w, end.get2D(d, factor), start.get2D(d, factor), ["dir"])
+            # drawLine(w, end.get2D(d, factor), start.get2D(d, factor), ["dir"])
 
             lastCubeTag = ""
             root.unbind("<B1-Motion>")
@@ -312,13 +312,80 @@ def handleDrag(e: Event, w: Canvas, d: float, factor: float) -> None:
 
 
             draw(w, d, factor)
-            drawLine(w, end.get2D(d, factor), start.get2D(d, factor), ["dir"])
+            # drawLine(w, end.get2D(d, factor), start.get2D(d, factor), ["dir"])
 
             lastCubeTag = ""
             root.unbind("<B1-Motion>")
 
         case 'Z':
-            pass
+            # For sampled direction vector:
+            # axes are x & y
+            # y has to be negative
+            # y has to be smaller than x
+            # determine the side of rotation based on x axis
+            # if x is positive, then 90, -90 otherwise
+            while (directionVector.y > 0 or abs(directionVector.y) > abs(directionVector.x)):
+                directionVector.rotate(0, 0, 90)
+            directionVector = transform(matrix, directionVector)
+
+            if (dot(directionVector, unitVectors[0]) < 0):
+                angle: float = 90
+                clockwise: bool = False
+            else:
+                angle: float = -90
+                clockwise: bool = True
+            
+            # The row is the same
+            
+            side: list[list[Cube]] = []
+            for i in range(size):
+                row: list[Cube] = []
+                for k in range(size):
+                    row.append(rubicksCube[i][row1][k])
+                side.append(row)
+            # print(side)
+            # print(list(map(lambda s: list(map(lambda c: c.id, s)), side)))
+            # print(list(map(lambda s: list(map(lambda c: c.id, s)), side)))
+
+
+            for i in range(size):
+                for j in range(size):
+                    for point in range(8):
+                        # p = side[i][j].points[point]
+                        # coords = matrixMultiply(inverseMatrix, tuple([p.x, p.y, p.z]))
+                        # side[i][j].points[point] = Vector3D(coords[0], coords[1], coords[2])
+                        side[i][j].points[point] = transform(inverseMatrix, side[i][j].points[point])
+
+                    side[i][j].rotate(0, 0, angle)
+            # # print(list(map(lambda s: list(map(lambda c: c.id, s)), side)))
+            rotateMatrix(side, clockwise)
+            # # print(list(map(lambda s: list(map(lambda c: c.id, s)), side)))
+            for i in range(size):
+                for k in range(size):
+                    # print(side[j][k].id, f"cube{layer1 * 9 + j * 3 + k}")
+                    side[i][k].id = f"cube{i * 9 + row1 * 3 + k}"
+                    rubicksCube[i][row1][k] = side[i][k]
+
+                    # print(rubicksCube[layer1][j][k].id, rubicksCube[layer1][j][k].center)
+
+            for i in range(size):
+                for j in range(size):
+                    for point in range(8):
+                        # p = side[i][j].points[point]
+                        # coords = matrixMultiply(matrix, tuple([p.x, p.y, p.z]))
+                        # side[i][j].points[point] = Vector3D(coords[0], coords[1], coords[2])
+                        side[i][j].points[point] = transform(matrix, side[i][j].points[point])
+
+                    newCenter = (side[i][j].points[1] + side[i][j].points[6]) * 0.5
+                    side[i][j].center = newCenter
+
+
+            draw(w, d, factor)
+            # drawLine(w, end.get2D(d, factor), start.get2D(d, factor), ["dir"])
+
+            lastCubeTag = ""
+            root.unbind("<B1-Motion>")
+
         case _:
             pass
 
