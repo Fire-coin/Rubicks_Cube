@@ -6,6 +6,7 @@ from copy import deepcopy
 
 lastCubeTag: str = ""
 lastFaceTag: str = ""
+cursorPositions: list[list[float]] = []
 
 
 def sinD(angle: float):
@@ -26,6 +27,7 @@ def matrixMultiply(matrix: list[list[float]], vector: tuple[float, ...]) -> tupl
         output[i] = result
 
     return tuple(output)
+
 
 def transform(matrix: list[list[float]], v: "Vector3D") -> "Vector3D":
     # matrix = [[i.x, i.y, i.z],
@@ -55,6 +57,12 @@ def rotateMatrix(matrix: list[list[Any]], clockwise: bool) -> None:
             rotateMatrix(matrix, True)
 
 
+def resetCursorPositions() -> None:
+    global cursorPositions
+    print("Cursor reseted")
+    cursorPositions = []
+
+
 def reset() -> None:
     global lastCubeTag, lastFaceTag
     lastCubeTag = ""
@@ -79,6 +87,38 @@ def getCurrentUnits():
     # drawLine(w, origin.get2D(d, factor * 6), newY.get2D(d, factor * 6), ["c1"])
     # drawLine(w, origin.get2D(d, factor * 6), newZ.get2D(d, factor * 6), ["c1"])
     return tuple([newX, newY, newZ])
+
+
+def handleRotationDrag(e: Event, w: Canvas, d: float, factor: float) -> None:
+    global cursorPositions
+    if (len(cursorPositions) < 10):
+        cursorPositions.append([e.x, e.y])
+        return
+
+    start: list[float] = cursorPositions[0]
+    end: list[float] = cursorPositions[-1]
+
+    Dx: float = end[1] - start[1]
+    Dy: float = end[0] - start[0]
+
+    width: int = w.winfo_width()
+    height: int = w.winfo_height()
+
+    # Full width crossed should be 0.5 full rotations
+    # Full height crossed should be 0.5 full rotations
+
+    fractionX: float = Dx / width
+    fractionY: float = Dy / height
+
+    angleX: float = .5 * 360 * fractionX
+    angleY: float = .5 * 360 * fractionY
+
+    print("x rotation: ", Dx, fractionX, angleX)
+    print("y rotation: ", Dy, fractionY, angleY)
+
+    rotate(-angleX, -angleY, 0)
+    draw(w, d, factor)
+    cursorPositions = []
 
 
 def handleDrag(e: Event, w: Canvas, d: float, factor: float) -> None:
@@ -842,6 +882,8 @@ for i in range(size):
 root.bind("<Key>", lambda e: handleRotate(e, w, d, factor))
 root.bind("<Button>", lambda e: reset())
 root.bind("<B1-Motion>", lambda e: handleDrag(e, w, d, factor))
+root.bind("<B3-Button>", lambda e: resetCursorPositions())
+root.bind("<B3-Motion>", lambda e: handleRotationDrag(e, w, d, factor))
 
 # for point in cube.points:
 #     print(point.x, point.y, point.z)
