@@ -7,6 +7,13 @@ from copy import deepcopy
 lastCubeTag: str = ""
 lastFaceTag: str = ""
 cursorPositions: list[list[float]] = []
+dirVector: "Vector3D"
+rubicksCube: list[list[list["Cube"]]]
+phantomCube: "Cube"
+root: Tk
+# w: Canvas
+size: int
+
 
 
 def sinD(angle: float):
@@ -15,28 +22,6 @@ def sinD(angle: float):
 
 def cosD(angle: float):
     return cos(angle * pi / 180)
-
-
-def matrixMultiply(matrix: list[list[float]], vector: tuple[float, ...]) -> tuple[float, ...]:
-    output: list[float] = [0, 0, 0]
-
-    for i in range(3):
-        result: float = 0
-        for j in range(3):
-            result += matrix[i][j] * vector[j]
-        output[i] = result
-
-    return tuple(output)
-
-
-def transform(matrix: list[list[float]], v: "Vector3D") -> "Vector3D":
-    # matrix = [[i.x, i.y, i.z],
-    #           [j.x, j.y, j.z],
-    #           [k.x, k.y, k.z]]
-
-    newCoords = matrixMultiply(matrix, tuple([v.x, v.y, v.z]))
-
-    return Vector3D(newCoords[0], newCoords[1], newCoords[2])
 
 
 def rotateMatrix(matrix: list[list[Any]], clockwise: bool) -> None:
@@ -57,35 +42,46 @@ def rotateMatrix(matrix: list[list[Any]], clockwise: bool) -> None:
             rotateMatrix(matrix, True)
 
 
+def matrixMultiply(matrix: list[list[float]], vector: tuple[float, ...]) -> tuple[float, ...]:
+    output: list[float] = [0, 0, 0]
+
+    for i in range(3):
+        result: float = 0
+        for j in range(3):
+            result += matrix[i][j] * vector[j]
+        output[i] = result
+
+    return tuple(output)
+
+
+def transform(matrix: list[list[float]], v: "Vector3D") -> "Vector3D":
+    newCoords = matrixMultiply(matrix, tuple([v.x, v.y, v.z]))
+
+    return Vector3D(newCoords[0], newCoords[1], newCoords[2])
+
+
 def resetCursorPositions() -> None:
     global cursorPositions
-    print("Cursor reseted")
     cursorPositions = []
 
 
-def reset() -> None:
+def reset(w: Canvas, d: float, factor: float) -> None:
     global lastCubeTag, lastFaceTag
     lastCubeTag = ""
     lastFaceTag = ""
     root.bind("<B1-Motion>", lambda e: handleDrag(e, w, d, factor))
-    print("reseted")
 
 
 def getCurrentUnits():
     global phantomCube
-    w.delete("c1")
 
     newX = phantomCube.points[4] - phantomCube.points[0] # 4, 0
     newY = phantomCube.points[3] - phantomCube.points[1] # 3, 1
     newZ = phantomCube.points[0] - phantomCube.points[1] # 1, 0
 
-    origin = Vector3D(0, 0, 0)
     newX *= 0.5
     newY *= 0.5
     newZ *= 0.5
-    # drawLine(w, origin.get2D(d, factor * 6), newX.get2D(d, factor * 6), ["c1"])
-    # drawLine(w, origin.get2D(d, factor * 6), newY.get2D(d, factor * 6), ["c1"])
-    # drawLine(w, origin.get2D(d, factor * 6), newZ.get2D(d, factor * 6), ["c1"])
     return tuple([newX, newY, newZ])
 
 
@@ -113,8 +109,6 @@ def handleRotationDrag(e: Event, w: Canvas, d: float, factor: float) -> None:
     angleX: float = .5 * 360 * fractionX
     angleY: float = .5 * 360 * fractionY
 
-    print("x rotation: ", Dx, fractionX, angleX)
-    print("y rotation: ", Dy, fractionY, angleY)
 
     rotate(-angleX, -angleY, 0)
     draw(w, d, factor)
@@ -128,7 +122,6 @@ def handleDrag(e: Event, w: Canvas, d: float, factor: float) -> None:
     tags: list[str] = cast(str, w.itemcget(overlaps[0], "tags")).split(' ') # type: ignore
     if (len(tags) <= 0): return
     cubeTag: str = tags[0]
-    # print(cubeTag)
     if (lastCubeTag == cubeTag): return
 
     if (lastCubeTag == ""):
@@ -136,10 +129,8 @@ def handleDrag(e: Event, w: Canvas, d: float, factor: float) -> None:
         lastFaceTag = tags[3]
         return
     root.unbind("<B1-Motion>")
-
-    print(lastCubeTag, cubeTag, lastFaceTag)
   
-
+    #TODO make these compatible with size
     cube1Number: int = int(lastCubeTag[4:])
     layer1: int = cube1Number // 9
     row1: int = (cube1Number % 9) // 3
@@ -156,20 +147,13 @@ def handleDrag(e: Event, w: Canvas, d: float, factor: float) -> None:
     cube2: Cube = rubicksCube[layer2][row2][column2]
 
     faceIndex: int = int(lastFaceTag[4:]) # Getting index of the face that was hit
-    # pointIndex: int = cube1.faces[faceIndex][0] # Index of any pont from the face that was hit
     p1: Vector3D = cube1.points[cube1.faces[faceIndex][0]]
     p2: Vector3D = cube1.points[cube1.faces[faceIndex][2]]
     start: Vector3D = (p1 + p2) * .5 # It is in the center of the cube
     end = deepcopy(cube2.center)
-    # start.z = cube1.points[pointIndex].z # Making it being at the center on the visible surface
 
     directionVector: Vector3D = end - start # The direction in which cube was dragged
-    print("start:", start, "\ncenter:", end)
-    # directionVector *= 4
     unitVectors = getCurrentUnits()   
-    # print(unitVectors[0])
-    # print(unitVectors[1])
-    # print(unitVectors[2])
 
     axis: str = ''
 
@@ -192,13 +176,6 @@ def handleDrag(e: Event, w: Canvas, d: float, factor: float) -> None:
         return
     
 
-    # print(directionVector)
-    print("x-axis: ", abs(dot(directionVector, unitVectors[0])))
-    print("y-axis: ", abs(dot(directionVector, unitVectors[1])))
-    print("z-axis: ", abs(dot(directionVector, unitVectors[2])))
-    print("direction: ", directionVector)
-    print(axis)
-
     # Roation around a point:
     # Substract point of rotation from the point we want to rotate
     # Rotate the point
@@ -217,18 +194,9 @@ def handleDrag(e: Event, w: Canvas, d: float, factor: float) -> None:
         [matrix[0][2], matrix[1][2], matrix[2][2]],
     ]
 
-    # nStart = transform(inverseMatrix, start)
-    # nEnd = transform(inverseMatrix, end)
 
-    # if (nStart.y < 0):
-    #     if (nStart.z < 0):
-
-
-    # coords = matrixMultiply(inverseMatrix, tuple([directionVector.x, directionVector.y, directionVector.z]))
-    # directionVector = Vector3D(coords[0], coords[1], coords[2])
     directionVector = transform(inverseMatrix, directionVector)
 
-    w.delete("dir")
     match axis:
         case 'X':
             # Getting the direction vector to face in only 1 way in the original state
@@ -236,9 +204,6 @@ def handleDrag(e: Event, w: Canvas, d: float, factor: float) -> None:
             while (directionVector.y > 0 or abs(directionVector.y) > abs(directionVector.z)):
                 directionVector.rotate(90, 0, 0)
             directionVector = transform(matrix, directionVector)
-            # print(f"{dot(directionVector, unitVectors[2])= }")
-            # print(directionVector)
-            # print(unitVectors[2])
             if (dot(directionVector, unitVectors[2]) > 0):
                 angle: float = 90
                 clockwise: bool = True
@@ -253,55 +218,25 @@ def handleDrag(e: Event, w: Canvas, d: float, factor: float) -> None:
                     row.append(rubicksCube[i][j][column1])
                 side.append(row)
 
-            # print(list(map(lambda s: list(map(lambda c: c.id, s)), side)))
-            # print(list(map(lambda l: list(map(lambda r: list(map(lambda c: c.id, r)), l)), rubicksCube)))
-
-            # color = ["purple", "pink", "cyan", "brown",
-            #          "lime", "magenta", "turquoise", "beige",
-            #          "indigo"]
-            # counter = 0
             for i in range(size):
                 for j in range(size):
-                    print(side[i][j].id)
-                    # side[i][j].colors[0] = color[counter]
-                    # counter += 1
                     for point in range(8):
-                        # p = side[i][j].points[point]
-                        # coords = matrixMultiply(inverseMatrix, tuple([p.x, p.y, p.z]))
-                        # side[i][j].points[point] = Vector3D(coords[0], coords[1], coords[2])
                         side[i][j].points[point] = transform(inverseMatrix, side[i][j].points[point])
                     side[i][j].rotate(angle, 0, 0)
             
             rotateMatrix(side, clockwise)
+            # Changing tags
             for i in range(size):
                 for j in range(size):
                     side[i][j].id = f"cube{i * 9 + j * 3 + column1}"
                     rubicksCube[i][j][column1] = side[i][j]
 
-            for i in range(size):
-                for j in range(size):
-                    for point in range(8):
-                        # p = side[i][j].points[point]
-                        # coords = matrixMultiply(matrix, tuple([p.x, p.y, p.z]))
-                        # side[i][j].points[point] = Vector3D(coords[0], coords[1], coords[2])
-                        side[i][j].points[point] = transform(matrix, side[i][j].points[point])
-                    newCenter = (side[i][j].points[1] + side[i][j].points[6]) * 0.5
-                    side[i][j].center = newCenter
-
-
-            draw(w, d, factor)
-            # drawLine(w, end.get2D(d, factor), start.get2D(d, factor), ["dir"])
-
-            lastCubeTag = ""
-            root.unbind("<B1-Motion>")
         case 'Y':
             while (directionVector.z < 0 or abs(directionVector.z) > abs(directionVector.x)):
                 directionVector.rotate(0, 90, 0)
             directionVector = transform(matrix, directionVector)
-            #TODO finish logic for rotation around y and z axis
             # layer is the same
             if (dot(directionVector, unitVectors[0]) < 0):
-                print("now")
                 # swipe to the left
                 angle: float = 90
                 clockwise: bool = False
@@ -316,46 +251,19 @@ def handleDrag(e: Event, w: Canvas, d: float, factor: float) -> None:
                     row.append(rubicksCube[layer1][j][k])
                 side.append(row)
             
-            # print(list(map(lambda s: list(map(lambda c: c.id, s)), side)))
-
 
             for i in range(size):
                 for j in range(size):
                     for point in range(8):
-                        # p = side[i][j].points[point]
-                        # coords = matrixMultiply(inverseMatrix, tuple([p.x, p.y, p.z]))
-                        # side[i][j].points[point] = Vector3D(coords[0], coords[1], coords[2])
                         side[i][j].points[point] = transform(inverseMatrix, side[i][j].points[point])
 
                     side[i][j].rotate(0, angle, 0)
-            # print(list(map(lambda s: list(map(lambda c: c.id, s)), side)))
+
             rotateMatrix(side, clockwise)
-            # print(list(map(lambda s: list(map(lambda c: c.id, s)), side)))
             for j in range(size):
                 for k in range(size):
-                    # print(side[j][k].id, f"cube{layer1 * 9 + j * 3 + k}")
                     side[j][k].id = f"cube{layer1 * 9 + j * 3 + k}"
                     rubicksCube[layer1][j][k] = side[j][k]
-
-                    # print(rubicksCube[layer1][j][k].id, rubicksCube[layer1][j][k].center)
-
-            for i in range(size):
-                for j in range(size):
-                    for point in range(8):
-                        # p = side[i][j].points[point]
-                        # coords = matrixMultiply(matrix, tuple([p.x, p.y, p.z]))
-                        # side[i][j].points[point] = Vector3D(coords[0], coords[1], coords[2])
-                        side[i][j].points[point] = transform(matrix, side[i][j].points[point])
-
-                    newCenter = (side[i][j].points[1] + side[i][j].points[6]) * 0.5
-                    side[i][j].center = newCenter
-
-
-            draw(w, d, factor)
-            # drawLine(w, end.get2D(d, factor), start.get2D(d, factor), ["dir"])
-
-            lastCubeTag = ""
-            root.unbind("<B1-Motion>")
 
         case 'Z':
             # For sampled direction vector:
@@ -383,51 +291,36 @@ def handleDrag(e: Event, w: Canvas, d: float, factor: float) -> None:
                 for k in range(size):
                     row.append(rubicksCube[i][row1][k])
                 side.append(row)
-            # print(side)
-            # print(list(map(lambda s: list(map(lambda c: c.id, s)), side)))
-            # print(list(map(lambda s: list(map(lambda c: c.id, s)), side)))
 
 
             for i in range(size):
                 for j in range(size):
                     for point in range(8):
-                        # p = side[i][j].points[point]
-                        # coords = matrixMultiply(inverseMatrix, tuple([p.x, p.y, p.z]))
-                        # side[i][j].points[point] = Vector3D(coords[0], coords[1], coords[2])
                         side[i][j].points[point] = transform(inverseMatrix, side[i][j].points[point])
 
                     side[i][j].rotate(0, 0, angle)
-            # # print(list(map(lambda s: list(map(lambda c: c.id, s)), side)))
+            
             rotateMatrix(side, clockwise)
-            # # print(list(map(lambda s: list(map(lambda c: c.id, s)), side)))
             for i in range(size):
                 for k in range(size):
-                    # print(side[j][k].id, f"cube{layer1 * 9 + j * 3 + k}")
                     side[i][k].id = f"cube{i * 9 + row1 * 3 + k}"
                     rubicksCube[i][row1][k] = side[i][k]
 
-                    # print(rubicksCube[layer1][j][k].id, rubicksCube[layer1][j][k].center)
-
-            for i in range(size):
-                for j in range(size):
-                    for point in range(8):
-                        # p = side[i][j].points[point]
-                        # coords = matrixMultiply(matrix, tuple([p.x, p.y, p.z]))
-                        # side[i][j].points[point] = Vector3D(coords[0], coords[1], coords[2])
-                        side[i][j].points[point] = transform(matrix, side[i][j].points[point])
-
-                    newCenter = (side[i][j].points[1] + side[i][j].points[6]) * 0.5
-                    side[i][j].center = newCenter
-
-
-            draw(w, d, factor)
-            # drawLine(w, end.get2D(d, factor), start.get2D(d, factor), ["dir"])
-
-            lastCubeTag = ""
-            root.unbind("<B1-Motion>")
-
         case _:
-            pass
+            return
+    
+    # Changing centers
+    for i in range(size):
+        for j in range(size):
+            for point in range(8):
+                side[i][j].points[point] = transform(matrix, side[i][j].points[point])
+            newCenter = (side[i][j].points[1] + side[i][j].points[6]) * 0.5
+            side[i][j].center = newCenter
+
+    draw(w, d, factor)
+
+    lastCubeTag = ""
+    root.unbind("<B1-Motion>")
 
 
 def handleRotate(e: Event, w: Canvas, d: float, factor: float) -> None:
@@ -591,12 +484,6 @@ class Cube:
         return self
     
     def changeCenter(self, newCenter: Vector3D) -> "Cube":
-        #TODO some errors may be cause by this function if used not properly
-        # for point in range(8):
-        #     self.points[point] -= newCenter
-        #     self.points[point].x = round(self.points[point].x, 1)
-        #     self.points[point].y = round(self.points[point].y, 1)
-        #     self.points[point].z = round(self.points[point].z, 1)
         self.points: list[Vector3D] = [Vector3D(-1, -1, 1), Vector3D(-1, -1, -1),
              Vector3D(-1,  1, 1), Vector3D(-1,  1, -1), 
              Vector3D( 1, -1, 1), Vector3D( 1, -1, -1), 
@@ -628,9 +515,6 @@ class Cube:
         if (self.colors == []):
             self.colors = ["yellow", "green", "purple", "red", "orange", "white",
                   "blue", "brown", "pink", "black", "cyan", "violet"]
-        # print(self.id)
-        # print(self.faces)
-        # print()
         for face in range(len(self.faces)):
             # This is the only fix that works, if I leave out
             # one side of the cube, it will not render properly.
@@ -643,39 +527,14 @@ class Cube:
             color: str | None = self.colors[face]
             assert color is not None # Making sure color is not None
 
-            v1: Vector3D = self.points[faces[face][0]] - self.points[faces[face][1]]
-            v2: Vector3D = self.points[faces[face][2]] - self.points[faces[face][1]]
+            v1: Vector3D = self.points[self.faces[face][0]] - self.points[self.faces[face][1]]
+            v2: Vector3D = self.points[self.faces[face][2]] - self.points[self.faces[face][1]]
             p: Vector3D = cross(v1, v2) # This is perpendicular to triangle vector
-            # print(face, p.x, p.y, p.z)
-            direction = dot(directionVector, p)
+            direction = dot(dirVector, p)
             if (abs(direction) < self.allowedError):
                 continue
-            # print(self.id, self.faces)
-            # print(direction)
-            # drawLine(w, self.points[faces[face][0]].get2D(distance, factor), p.get2D(distance, factor), self.id)
-            # drawLine(w, self.points[faces[face][1]].get2D(distance, factor), p.get2D(distance, factor), self.id)
-            # drawLine(w, self.points[faces[face][2]].get2D(distance, factor), p.get2D(distance, factor), self.id)
-            # if (self.colors[face] == "white" or self.colors[face] == "red"):
-            #     print(self.id)
-            #     print(self.colors[face])
-            #     print(self.faces[face])
-            #     print(self.points[self.faces[face][0]])
-            #     print(self.points[self.faces[face][1]])
-            #     print(self.points[self.faces[face][2]])
-            #     # print(v1)
-            #     # print(v2)
-            #     # print(p)
-            #     print(direction)
-            #     print()
-            #     drawLine(w, self.points[faces[face][1]].get2D(distance, factor), p.get2D(distance, factor), self.id)
             if (direction < 0):
                 continue
-            # print(direction)
-            # lightMagnitude = dot(lightDirection, p)
-            # norm = abs(lightMagnitude) / abs(dot(p, p))
-            # shade = int(150 * (1 + norm))
-            # print(norm, shade, lightMagnitude)
-            # color: str = self.colors[face]
             faceTags: list[str] = [self.id, "cube", color, f"face{face}"]
 
             drawTriangle(w, (self.points[self.faces[face][0]].get2D(distance, factor),
@@ -731,8 +590,6 @@ def draw(w: Canvas, distance: float, factor: float):
     for i in range(size):
         for j in range(size):
             for k in range(size):
-                # if (1 == i == j == k):
-                #     continue
                 rubicksCube[i][j][k].draw(w, distance, factor)
 
 
@@ -753,156 +610,74 @@ def getLength(v: Vector3D) -> float:
 def rotateAroundAxis(v: Vector3D, k: Vector3D, theta: float) -> Vector3D:
     return (v * cosD(theta)) + (cross(k, v) * sinD(theta)) + (k * dot(k, v) * (1 - cosD(theta)))
 
+def main() -> None:
+    global root, dirVector, rubicksCube, phantomCube, size
+    root = Tk()
 
-root = Tk()
+    d = 20.0
+    dirVector = Vector3D(0, 0, 1)
+    factor = 50
+    size = 3
 
-d = 20.0
-directionVector = Vector3D(0, 0, 1)
-lightDirection = Vector3D(-1, -1, 0)
-factor = 50
-size = 3
+    w = Canvas(root, width= 801, height= 801, bg= "grey")
+    w.pack()
 
-w = Canvas(root, width= 801, height= 801, bg= "grey")
-w.pack()
+    rubicksCube = []
 
-# p1 = Vector3D(0, 0, 1.0)
-# p2 = Vector3D(1.0, 1.0, 1.0)
+    phantomCube = Cube("phantom", Vector3D(0, 0, 0))
+    phantomCube.addFace("left", None)
+    phantomCube.addFace("top", None)
+    phantomCube.addFace("back", None)
+    phantomCube.addFace("right", None)
+    phantomCube.addFace("bottom", None)
+    phantomCube.addFace("front", None)
 
-# cube = [p0, p1, p2, p3, p4, p5, p6, p7]
-
-connections = [(0, 1), (0, 2), (0, 4),
-(1, 3), (1, 5),
-(2, 3), (2, 6),
-(3, 7),
-(4, 5), (4, 6),
-(5, 7),
-(6, 7)]
-
-faces = [(1, 0, 2), (2, 3, 1), # left face
-         (3, 2, 6), (6, 7, 3), # top face
-         (6, 2, 0), (0, 4, 6), # back face
-         (7, 6, 4), (4, 5, 7), # right face
-         (4, 0, 1), (1, 5, 4), # bottom face
-         (1, 3, 7), (7, 5, 1)] # front face
-
-rubicksCube: list[list[list[Cube]]] = []
-phantomCube: Cube = Cube("phantom", Vector3D(0, 0, 0))
-phantomCube.addFace("left", None)
-phantomCube.addFace("top", None)
-phantomCube.addFace("back", None)
-phantomCube.addFace("right", None)
-phantomCube.addFace("bottom", None)
-phantomCube.addFace("front", None)
-
-counter = 0
-for i in range(size):
-    layer: list[list[Cube]] = []
-    for j in range(size):
-        row: list[Cube] = []
-        for k in range(size):
-            # if (1 == i == j == k):
-            #     row.append(Cube(f"cube{counter}"))
-            c = Cube(f"cube{counter}", Vector3D(2*k - 2, -2*i + 2, 2*j - 2))
-            # c.getDefaultFaces()
-            if (k == 0): # left face
-                c.addFace("left", "orange")
-            else:
-                c.addFace("left", None)
-            
-            if (i == 0): # top face
-                c.addFace("top", "yellow")
-            else:
-                c.addFace("top", None)
-            
-            if (j == size - 1): # back face9
-                c.addFace("back", "green")
-            else:
-                c.addFace("back", None)
-            
-            if (k == size - 1): # right face
-                c.addFace("right", "red")
-            else:
-                c.addFace("right", None)
-            
-            if (i == size - 1): # bottom face
-                c.addFace("bottom", "white")
-            else:
-                c.addFace("bottom", None)
-            
-            if (j == 0): # front face
-                c.addFace("front", "blue")
-            else:
-                c.addFace("front", None)
-            
-            row.append(c)
-            c.draw(w, d, factor)
-            counter += 1
-        layer.append(row)
-    rubicksCube.append(layer)
+    counter = 0
+    for i in range(size):
+        layer: list[list[Cube]] = []
+        for j in range(size):
+            row: list[Cube] = []
+            for k in range(size):
+                c = Cube(f"cube{counter}", Vector3D(2*k - 2, -2*i + 2, 2*j - 2))
+                c.addFace("left", "orange") if (k == 0) else c.addFace("left", None) # left face
+                
+                c.addFace("top", "yellow") if (i == 0) else c.addFace("top", None) # top face
+                
+                # if (j == size - 1): # back face
+                c.addFace("back", "green") if (j == size - 1) else c.addFace("back", None)
+                # else:
+                #     c.addFace("back", None)
+                
+                # if (k == size - 1): # right face
+                c.addFace("right", "red") if (k == size - 1) else c.addFace("right", None)
+                # else:
+                #     c.addFace("right", None)
+                
+                # if (i == size - 1): # bottom face
+                c.addFace("bottom", "white") if (i == size - 1) else c.addFace("bottom", None)
+                # else:
+                #     c.addFace("bottom", None)
+                
+                # if (j == 0): # front face
+                c.addFace("front", "blue") if (j == 0) else c.addFace("front", None)
+                # else:
+                #     c.addFace("front", None)
+                
+                row.append(c)
+                c.draw(w, d, factor)
+                counter += 1
+            layer.append(row)
+        rubicksCube.append(layer)
 
 
-
-# cube = Cube("cube1", Vector3D(0, 0, 0))
-# cube.addEdges()
-# cube2 = Cube("cube2", Vector3D(2, 0, 0))
-
-#TODO problem happens when faces are not added in the order I created them in
-# cube.addFace("left", "orange")
-# cube.addFace("top", "yellow")
-# cube.getDefaultFaces()
-# cube.addFace("left", "orange")
-# cube.addFace("top", "yellow")
-# cube.addFace("back", "green")
-# cube.addFace("right", None)
-# cube.addFace("bottom", "white")
-# cube.addFace("front", "blue")
-
-# cube2.addFace("left", None)
-# cube2.addFace("top", "yellow")
-# cube2.addFace("back", "green")
-# cube2.addFace("right", "red")
-# cube2.addFace("bottom", "white")
-# cube2.addFace("front", "blue")
-# cube2.getDefaultFaces()
-# cube2._addFaceColor("orange")
-# cube2._addFaceColor("yellow")
-# cube2._addFaceColor("green")
-# cube2._addFaceColor("red")
-# cube2._addFaceColor("white")
-# cube2._addFaceColor("blue")
+    root.bind("<Key>", lambda e: handleRotate(e, w, d, factor))
+    root.bind("<Button>", lambda e: reset(w, d, factor))
+    root.bind("<B1-Motion>", lambda e: handleDrag(e, w, d, factor))
+    root.bind("<B3-Button>", lambda e: resetCursorPositions())
+    root.bind("<B3-Motion>", lambda e: handleRotationDrag(e, w, d, factor))
 
 
-# cube.addEdges(connections)
-# cube.addFaces(faces)
-# cube.getDefaultFaces()
-# cube.draw(w, d, factor)
-# cube2.draw(w, d, factor)
-# root.bind("<B3-Motion>", lambda e: handleRotate(e, w, d, factor))
-# cube.draw(w, d, factor)
-root.bind("<Key>", lambda e: handleRotate(e, w, d, factor))
-root.bind("<Button>", lambda e: reset())
-root.bind("<B1-Motion>", lambda e: handleDrag(e, w, d, factor))
-root.bind("<B3-Button>", lambda e: resetCursorPositions())
-root.bind("<B3-Motion>", lambda e: handleRotationDrag(e, w, d, factor))
+    root.mainloop()
 
-# for point in cube.points:
-#     print(point.x, point.y, point.z)
-# for i in range(36):
-#     w.after(400)
-#     cube.rotate(0, 10, 0)
-#     cube.draw(w, d, factor)
-#     for point in cube.points:
-#         print(point.x, point.y, point.z)
-#     print('\n')
-# cube.rotate(20, 20, 0)
-# cube.draw(w, d, factor)
-
-# for c in connections:
-#     drawLine(w, c[0].get2D(d, factor), c[1].get2D(d, factor))
-
-
-# drawLine(w, p1.get2D(d, factor), p2.get2D(d, factor))
-
-
-
-root.mainloop()
+if (__name__ == "__main__"):
+    main()
