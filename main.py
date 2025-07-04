@@ -27,10 +27,10 @@ def matrixMultiply(matrix: list[list[float]], vector: tuple[float, ...]) -> tupl
 
     return tuple(output)
 
-def transform(v: "Vector3D", i: "Vector3D", j: "Vector3D", k: "Vector3D") -> "Vector3D":
-    matrix = [[i.x, i.y, i.z],
-              [j.x, j.y, j.z],
-              [k.x, k.y, k.z]]
+def transform(matrix: list[list[float]], v: "Vector3D") -> "Vector3D":
+    # matrix = [[i.x, i.y, i.z],
+    #           [j.x, j.y, j.z],
+    #           [k.x, k.y, k.z]]
 
     newCoords = matrixMultiply(matrix, tuple([v.x, v.y, v.z]))
 
@@ -176,10 +176,30 @@ def handleDrag(e: Event, w: Canvas, d: float, factor: float) -> None:
         [matrix[0][1], matrix[1][1], matrix[2][1]],
         [matrix[0][2], matrix[1][2], matrix[2][2]],
     ]
+
+    # nStart = transform(inverseMatrix, start)
+    # nEnd = transform(inverseMatrix, end)
+
+    # if (nStart.y < 0):
+    #     if (nStart.z < 0):
+
+
+    # coords = matrixMultiply(inverseMatrix, tuple([directionVector.x, directionVector.y, directionVector.z]))
+    # directionVector = Vector3D(coords[0], coords[1], coords[2])
+    directionVector = transform(inverseMatrix, directionVector)
+
     w.delete("dir")
     match axis:
         case 'X':
-            if (dot(directionVector, unitVectors[1]) * unitVectors[1].y > 0):
+            # Getting the direction vector to face in only 1 way in the original state
+            # from there it is easy to determine where is the direction of rotation
+            while (directionVector.y > 0 or abs(directionVector.y) > abs(directionVector.z)):
+                directionVector.rotate(90, 0, 0)
+            directionVector = transform(matrix, directionVector)
+            # print(f"{dot(directionVector, unitVectors[2])= }")
+            # print(directionVector)
+            # print(unitVectors[2])
+            if (dot(directionVector, unitVectors[2]) > 0):
                 angle: float = 90
                 clockwise: bool = True
             else:
@@ -206,9 +226,10 @@ def handleDrag(e: Event, w: Canvas, d: float, factor: float) -> None:
                     # side[i][j].colors[0] = color[counter]
                     # counter += 1
                     for point in range(8):
-                        p = side[i][j].points[point]
-                        coords = matrixMultiply(inverseMatrix, tuple([p.x, p.y, p.z]))
-                        side[i][j].points[point] = Vector3D(coords[0], coords[1], coords[2])
+                        # p = side[i][j].points[point]
+                        # coords = matrixMultiply(inverseMatrix, tuple([p.x, p.y, p.z]))
+                        # side[i][j].points[point] = Vector3D(coords[0], coords[1], coords[2])
+                        side[i][j].points[point] = transform(inverseMatrix, side[i][j].points[point])
                     side[i][j].rotate(angle, 0, 0)
             
             rotateMatrix(side, clockwise)
@@ -220,9 +241,10 @@ def handleDrag(e: Event, w: Canvas, d: float, factor: float) -> None:
             for i in range(size):
                 for j in range(size):
                     for point in range(8):
-                        p = side[i][j].points[point]
-                        coords = matrixMultiply(matrix, tuple([p.x, p.y, p.z]))
-                        side[i][j].points[point] = Vector3D(coords[0], coords[1], coords[2])
+                        # p = side[i][j].points[point]
+                        # coords = matrixMultiply(matrix, tuple([p.x, p.y, p.z]))
+                        # side[i][j].points[point] = Vector3D(coords[0], coords[1], coords[2])
+                        side[i][j].points[point] = transform(matrix, side[i][j].points[point])
                     newCenter = (side[i][j].points[1] + side[i][j].points[6]) * 0.5
                     side[i][j].center = newCenter
 
@@ -233,10 +255,14 @@ def handleDrag(e: Event, w: Canvas, d: float, factor: float) -> None:
             lastCubeTag = ""
             root.unbind("<B1-Motion>")
         case 'Y':
+            while (directionVector.z < 0 or abs(directionVector.z) > abs(directionVector.x)):
+                directionVector.rotate(0, 90, 0)
+            directionVector = transform(matrix, directionVector)
             #TODO finish logic for rotation around y and z axis
-            #TODO fix tags of cubes
             # layer is the same
-            if (dot(directionVector, unitVectors[0]) * unitVectors[0].x < 0):
+            if (dot(directionVector, unitVectors[0]) < 0):
+                print("now")
+                # swipe to the left
                 angle: float = 90
                 clockwise: bool = False
             else:
@@ -256,9 +282,11 @@ def handleDrag(e: Event, w: Canvas, d: float, factor: float) -> None:
             for i in range(size):
                 for j in range(size):
                     for point in range(8):
-                        p = side[i][j].points[point]
-                        coords = matrixMultiply(inverseMatrix, tuple([p.x, p.y, p.z]))
-                        side[i][j].points[point] = Vector3D(coords[0], coords[1], coords[2])
+                        # p = side[i][j].points[point]
+                        # coords = matrixMultiply(inverseMatrix, tuple([p.x, p.y, p.z]))
+                        # side[i][j].points[point] = Vector3D(coords[0], coords[1], coords[2])
+                        side[i][j].points[point] = transform(inverseMatrix, side[i][j].points[point])
+
                     side[i][j].rotate(0, angle, 0)
             # print(list(map(lambda s: list(map(lambda c: c.id, s)), side)))
             rotateMatrix(side, clockwise)
@@ -274,9 +302,11 @@ def handleDrag(e: Event, w: Canvas, d: float, factor: float) -> None:
             for i in range(size):
                 for j in range(size):
                     for point in range(8):
-                        p = side[i][j].points[point]
-                        coords = matrixMultiply(matrix, tuple([p.x, p.y, p.z]))
-                        side[i][j].points[point] = Vector3D(coords[0], coords[1], coords[2])
+                        # p = side[i][j].points[point]
+                        # coords = matrixMultiply(matrix, tuple([p.x, p.y, p.z]))
+                        # side[i][j].points[point] = Vector3D(coords[0], coords[1], coords[2])
+                        side[i][j].points[point] = transform(matrix, side[i][j].points[point])
+
                     newCenter = (side[i][j].points[1] + side[i][j].points[6]) * 0.5
                     side[i][j].center = newCenter
 
@@ -287,7 +317,8 @@ def handleDrag(e: Event, w: Canvas, d: float, factor: float) -> None:
             lastCubeTag = ""
             root.unbind("<B1-Motion>")
 
-
+        case 'Z':
+            pass
         case _:
             pass
 
@@ -530,7 +561,7 @@ class Cube:
             #     print(direction)
             #     print()
             #     drawLine(w, self.points[faces[face][1]].get2D(distance, factor), p.get2D(distance, factor), self.id)
-            if (direction >= 0):
+            if (direction < 0):
                 continue
             # print(direction)
             # lightMagnitude = dot(lightDirection, p)
@@ -619,7 +650,7 @@ def rotateAroundAxis(v: Vector3D, k: Vector3D, theta: float) -> Vector3D:
 root = Tk()
 
 d = 20.0
-directionVector = Vector3D(0, 0, -1)
+directionVector = Vector3D(0, 0, 1)
 lightDirection = Vector3D(-1, -1, 0)
 factor = 50
 size = 3
