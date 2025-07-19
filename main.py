@@ -1,7 +1,6 @@
 from tkinter import Tk, Canvas, Event
 from math import sin, cos, radians, pi
 from typing import cast, Any
-from math import sqrt
 
 lastCubeTag: str = ""
 lastFaceTag: str = ""
@@ -14,33 +13,67 @@ size: int
 
 
 
-def sinD(angle: float):
+def sinD(angle: float) -> float:
+    """Sine funciton in degrees
+
+    Args:
+        angle (float): Angle in degrees
+
+    Returns:
+        float: Value if sine of angle
+    """
     return sin(radians(angle))
 
 
-def cosD(angle: float):
+def cosD(angle: float) -> float:
+    """Cosine function in degrees
+
+    Args:
+        angle (float): Angle in degrees
+
+    Returns:
+        float: Value of cosine of angle
+    """
     return cos(angle * pi / 180)
 
 
 def rotateMatrix(matrix: list[list[Any]], clockwise: bool) -> None:
+    """Rotates square matrix by reference.
+
+    Args:
+        matrix (list[list[Any]]): The reference to the matrix that will be rotated
+        clockwise (bool): Direction the matrix will be rotated
+    """
     matrixSize = len(matrix)
     if (clockwise):
+        # Flipping matrix along diagonal
         for i in range(matrixSize):
             for j in range(matrixSize):
                 if (j < i): continue
                 temp: Any = matrix[i][j]
                 matrix[i][j] = matrix[j][i]
                 matrix[j][i] = temp
+        # Swapping left and right columns
         for k in range(matrixSize):
             temp = matrix[k][0]
             matrix[k][0] = matrix[k][-1]
             matrix[k][-1] = temp
     else:
+        # Rotating matrix 3 times to rotate counter clockwise
         for i in range(3):
             rotateMatrix(matrix, True)
 
 
 def matrixMultiply(matrix: list[list[float]], vector: tuple[float, ...]) -> tuple[float, ...]:
+    """Multiplies matrix by vector
+
+    Args:
+        matrix (list[list[float]]): input 3x3 matrix
+        vector (tuple[float, ...]): input 3x1 vector
+
+    Returns:
+        tuple[float, ...]: resultant vector
+    """
     output: list[float] = [0, 0, 0]
 
     for i in range(3):
@@ -53,17 +86,35 @@ def matrixMultiply(matrix: list[list[float]], vector: tuple[float, ...]) -> tupl
 
 
 def transform(matrix: list[list[float]], v: "Vector3D") -> "Vector3D":
+    """Transforms vector by given matrix
+
+    Args:
+        matrix (list[list[float]]): Transformation matrix
+        v (Vector3D): Input vector
+
+    Returns:
+        Vector3D: Transformed vector
+    """
     newCoords = matrixMultiply(matrix, tuple([v.x, v.y, v.z]))
 
     return Vector3D(newCoords[0], newCoords[1], newCoords[2])
 
 
 def resetCursorPositions() -> None:
+    """Resets cursorPositions variable
+    """
     global cursorPositions
     cursorPositions = []
 
 
 def reset(w: Canvas, d: float, factor: float) -> None:
+    """Resets variables and bind canvas again to enable dragging a side.
+
+    Args:
+        w (Canvas): Canvas
+        d (float): Distance to the camera
+        factor (float): Scale factor for image
+    """
     global lastCubeTag, lastFaceTag
     lastCubeTag = ""
     lastFaceTag = ""
@@ -71,6 +122,11 @@ def reset(w: Canvas, d: float, factor: float) -> None:
 
 
 def getCurrentUnits() -> tuple["Vector3D", ...]:
+    """Gives unit vectors in current rotation of the cube.
+
+    Returns:
+        tuple["Vector3D"]: Unit vectors in current rotation
+    """
     global phantomCube
 
     newX = phantomCube.points[4] - phantomCube.points[0] # 4, 0
@@ -84,6 +140,14 @@ def getCurrentUnits() -> tuple["Vector3D", ...]:
 
 
 def handleRotationDrag(e: Event, w: Canvas, d: float, factor: float) -> None:
+    """Rotates the cube when user drags with right click.
+
+    Args:
+        e (Event): Event returned by bind method of canvas
+        w (Canvas): Canvas
+        d (float): Distance to the camera
+        factor (float): Scale factor for the image
+    """
     global cursorPositions
     if (len(cursorPositions) < 10):
         cursorPositions.append([e.x, e.y])
@@ -98,9 +162,6 @@ def handleRotationDrag(e: Event, w: Canvas, d: float, factor: float) -> None:
     width: int = w.winfo_width()
     height: int = w.winfo_height()
 
-    # Full width crossed should be 0.5 full rotations
-    # Full height crossed should be 0.5 full rotations
-
     fractionX: float = Dx / width
     fractionY: float = Dy / height
 
@@ -114,15 +175,25 @@ def handleRotationDrag(e: Event, w: Canvas, d: float, factor: float) -> None:
 
 
 def getCubesIndexes(cubeTag1: str, cubeTag2: str) -> tuple[int, ...]:
-    square = size * size
-    cube1Number: int = int(cubeTag1[4:])
-    layer1: int = cube1Number // square
-    row1: int = (cube1Number % square) // size
-    column1: int = (cube1Number % square) % size
+    """Calculates the layer, row and column of cubes in Rubik's cube from given tags.
+
+    Args:
+        cubeTag1 (str): Canvas tag of first cube
+        cubeTag2 (str): Canvas tag of second cube
+
+    Returns:
+        tuple[int]: Returns the tuple of layer, row and column for each cube.
+        Or (-1,) if cube tags are invalid.
+    """
     try:
+        cube1Number: int = int(cubeTag1[4:])    
         cube2Number: int = int(cubeTag2[4:])
     except:
         return (-1,)
+    square = size * size
+    layer1: int = cube1Number // square
+    row1: int = (cube1Number % square) // size
+    column1: int = (cube1Number % square) % size
     layer2: int = cube2Number // square
     row2: int = (cube2Number % square) // size
     column2: int = (cube2Number % square) % size
@@ -131,6 +202,16 @@ def getCubesIndexes(cubeTag1: str, cubeTag2: str) -> tuple[int, ...]:
 
 
 def handleDrag(e: Event, w: Canvas, d: float, factor: float) -> None:
+    """This function determines what side of cube should be rotated,
+    in which direction and around which axis,
+    and rotates the side, when user drags with left mouse button.
+
+    Args:
+        e (Event): Event returned by canvas bind method
+        w (Canvas): Canvas
+        d (float): Distance to the camera
+        factor (float): Scale factor for the image
+    """
     global lastCubeTag, lastFaceTag
     overlaps: tuple[int, ...] = w.find_overlapping(e.x, e.y, e.x, e.y)
     if (len(overlaps) <= 0): return
@@ -341,6 +422,14 @@ def handleDrag(e: Event, w: Canvas, d: float, factor: float) -> None:
 
 
 def handleRotate(e: Event, w: Canvas, d: float, factor: float) -> None:
+    """Rotates the cube around an axis depending onn key press.
+
+    Args:
+        e (Event): Event returned by canvas bind method
+        w (Canvas): Canvas
+        d (float): Distance to the camera
+        factor (float): Scale factor for the image
+    """
     match(e.char):
         case 'w':
             rotate(10, 0, 0)
@@ -564,12 +653,28 @@ class Cube:
 
 
 def dot(v: Vector3D, w: Vector3D) -> float:
-    """Dot product of 2 vectors; returns the value"""
+    """Dot product of 2 vectors
+
+    Args:
+        v (Vector3D): First vector
+        w (Vector3D): Second vector
+
+    Returns:
+        float: Result of dot product
+    """    
     return v.x * w.x + v.y * w.y + v.z * w.z
 
 
 def cross(v: Vector3D, w: Vector3D) -> Vector3D:
-    """Cross product of 2 vectors; returns new vector"""
+    """Cross product of 2 vectors.
+
+    Args:
+        v (Vector3D): First vector
+        w (Vector3D): Second vector
+
+    Returns:
+        Vector3D: Returns new vector
+    """    
     x = v.y * w.z - w.y * v.z
     y = v.z * w.x - w.z * v.x
     z = v.x * w.y - w.x * v.y
@@ -577,10 +682,26 @@ def cross(v: Vector3D, w: Vector3D) -> Vector3D:
 
 
 def drawLine(w: Canvas, point1: Vector2D, point2: Vector2D, tags: list[str]) -> None:
+    """Draws line in cartesian coordiantes centered in center of canvas.
+
+    Args:
+        w (Canvas): Canvas
+        point1 (Vector2D): First point of line
+        point2 (Vector2D): Second point of line
+        tags (list[str]): Tags that will be given to the line
+    """
     w.create_line(point1.x + 400, 400 - point1.y, point2.x + 400, 400 - point2.y, fill= "black", tags= tags) # type: ignore
 
 
 def drawTriangle(w: Canvas, points: tuple[Vector2D, Vector2D, Vector2D], color: str, tags: list[str]) -> None:
+    """Draws triangle in cartesian coordinates centered on center of canvas.
+
+    Args:
+        w (Canvas): Canvas
+        points (tuple[Vector2D, Vector2D, Vector2D]): Points of triangle
+        color (str): Triangles color
+        tags (list[str]): Tags that will be given to the triangle
+    """
     w.create_polygon(points[0].x + 400, 400 - points[0].y, # Adjusted coordinates for first point
                      points[1].x + 400, 400 - points[1].y, # Adjusting coordinates for second point
                      points[2].x + 400, 400 - points[2].y, # Adjusting coordinates for thrird point
@@ -589,6 +710,13 @@ def drawTriangle(w: Canvas, points: tuple[Vector2D, Vector2D, Vector2D], color: 
 
 
 def draw(w: Canvas, distance: float, factor: float):
+    """Draws the Rubik's cube.
+
+    Args:
+        w (Canvas): Canvas
+        distance (float): Distance to the camera
+        factor (float): Scale factor for the image
+    """
     for i in range(size):
         for j in range(size):
             for k in range(size):
@@ -596,6 +724,13 @@ def draw(w: Canvas, distance: float, factor: float):
 
 
 def rotate(x: float, y: float, z: float):
+    """Rotates the Rubik's cube.
+
+    Args:
+        x (float): Angle of rotation around x-axis
+        y (float): Angle of rotation around y-axis
+        z (float): Angle of rotation around z-axis
+    """
     for i in range(size):
         for j in range(size):
             for k in range(size):
@@ -603,15 +738,9 @@ def rotate(x: float, y: float, z: float):
     phantomCube.rotate(x, y, z)
 
 
-def getLength(v: Vector3D) -> float:
-    return sqrt(v.x ** 2 + v.y ** 2 + v.z ** 2)
-
-
-def rotateAroundAxis(v: Vector3D, k: Vector3D, theta: float) -> Vector3D:
-    return (v * cosD(theta)) + (cross(k, v) * sinD(theta)) + (k * dot(k, v) * (1 - cosD(theta)))
-
-
 def main() -> None:
+    """Main function, here all global varianbles are asigned.
+    """
     global root, dirVector, rubicksCube, phantomCube, size
     root = Tk()
 
