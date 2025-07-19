@@ -225,8 +225,8 @@ def handleDrag(e: Event, w: Canvas, d: float, factor: float) -> None:
         lastFaceTag = tags[3]
         return
     root.unbind("<B1-Motion>")
-
-    try:
+    
+    try: # Testing if the values can be unpacked, if not, the tags were invalid
         layer1, row1, column1, layer2, row2, column2 = getCubesIndexes(lastCubeTag, cubeTag)
     except:
         return
@@ -242,11 +242,10 @@ def handleDrag(e: Event, w: Canvas, d: float, factor: float) -> None:
     directionVector: Vector3D = end - start # The direction in which cube was dragged
     unitVectors = getCurrentUnits()   
 
-    axis: str = ''
 
         
+    axis: str = '' # The axis in which the side of cube should be rotated
     smallest = float("inf")
-    axis = ''
     if (abs(dot(directionVector, unitVectors[0])) < smallest):
         smallest = abs(dot(directionVector, unitVectors[0]))
         axis = 'X'
@@ -268,9 +267,9 @@ def handleDrag(e: Event, w: Canvas, d: float, factor: float) -> None:
     # Rotate the point
     # Add back the point of rotation to the rotated point
 
-    i = unitVectors[0]
-    j = unitVectors[1]
-    k = unitVectors[2]
+    i = unitVectors[0] # rotated x-axis unit vector
+    j = unitVectors[1] # rotated y-axis unit vector
+    k = unitVectors[2] # rotated z-axis unit vector
 
     matrix = [[i.x, j.x, k.x],
               [i.y, j.y, k.y],
@@ -285,7 +284,8 @@ def handleDrag(e: Event, w: Canvas, d: float, factor: float) -> None:
     angle: float # The angle by which the side will be rotated
     clockwise: bool # The direction by which the matrix of side will be rotated
 
-    directionVector = transform(inverseMatrix, directionVector)
+    # Trasforming direction vector, into state it would be, if cube was not rotated
+    directionVector = transform(inverseMatrix, directionVector) 
 
     match axis:
         case 'X':
@@ -301,7 +301,7 @@ def handleDrag(e: Event, w: Canvas, d: float, factor: float) -> None:
                 angle = -90
                 clockwise = False
             
-            # column is the same
+            # column is the same in side of cube, when rotated arounf x-axis
             side = []
             for i in range(size):
                 row: list[Cube] = []
@@ -336,7 +336,7 @@ def handleDrag(e: Event, w: Canvas, d: float, factor: float) -> None:
                 angle = -90
                 clockwise = True
             
-            # layer is the same
+            # layer is the same in side of the cube, when rotating around y-axis
             side = []
             for j in range(size):
                 row: list[Cube] = []
@@ -379,7 +379,7 @@ def handleDrag(e: Event, w: Canvas, d: float, factor: float) -> None:
                 clockwise = True
             
             
-            # The row is the same
+            # The row is the same in the side of cube, when rotating around z-axis
             side = []
             for i in range(size):
                 row: list[Cube] = []
@@ -406,7 +406,7 @@ def handleDrag(e: Event, w: Canvas, d: float, factor: float) -> None:
         case _:
             return
     
-    # Translating all the points into th rotated state
+    # Translating all the points into the# Trasforming direction vector, into state it would be, if cube was not rotated rotated state
     # and changing centers
     for i in range(size):
         for j in range(size):
@@ -415,7 +415,7 @@ def handleDrag(e: Event, w: Canvas, d: float, factor: float) -> None:
             newCenter = (side[i][j].points[1] + side[i][j].points[6]) * 0.5
             side[i][j].center = newCenter
 
-    draw(w, d, factor)
+    draw(w, d, factor) # Drawing the whole cube after rotating the side
 
     lastCubeTag = ""
     root.unbind("<B1-Motion>")
@@ -464,6 +464,15 @@ class Vector3D:
         self.z: float = z
     
     def get2D(self, d: float, scaleFactor: float) -> Vector2D:
+        """Gives projection of this vector into 2D plane in cartesian coordinates.
+
+        Args:
+            d (float): Distance from camera
+            scaleFactor (float): Scale factor of the image
+
+        Returns:
+            Vector2D: The projected vector
+        """
         coof = (d / (d + self.z))
         return Vector2D(self.x * coof, self.y * coof, scaleFactor)
     
