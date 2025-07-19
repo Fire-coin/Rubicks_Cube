@@ -500,21 +500,50 @@ class Vector3D:
         return self
 
     def __sub__(self, other: "Vector3D") -> "Vector3D":
+        """Overload of '-' operator, substracts other vector from this one.
+
+        Args:
+            other (Vector3D): Vector that will be substracted from this one
+
+        Returns:
+            Vector3D: The vector that is result of substraction
+        """
         x: float = self.x - other.x
         y: float = self.y - other.y
         z: float = self.z - other.z
         return Vector3D(x, y, z)
     
     def __add__(self, other: "Vector3D") -> "Vector3D":
+        """Adds other vector to this one.
+
+        Args:
+            other (Vector3D): The vector that will be added to this one
+
+        Returns:
+            Vector3D: The vector that is result of addition
+        """
         x: float = self.x + other.x
         y: float = self.y + other.y
         z: float = self.z + other.z
         return Vector3D(x, y, z)
 
     def __str__(self) -> str:
+        """Displays the vector, when it is printed.
+
+        Returns:
+            str: The string representation of this vector, tat will be displayed
+        """
         return f"X: {self.x}, Y: {self.y}, Z: {self.z}"
 
     def __setitem__(self, other: "Vector3D") -> "Vector3D":
+        """Allows for indexing the vector.
+
+        Args:
+            other (Vector3D): _description_
+
+        Returns:
+            Vector3D: _description_
+        """
         return self.__add__(other)
 
     def __mul__(self, num: float) -> "Vector3D":
